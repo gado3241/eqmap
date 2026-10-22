@@ -1136,15 +1136,33 @@ function findPt(p){   // 검색/목록에서 고른 설비를 위성지도에 �
   hiT=setTimeout(hiClear,20000);
 }
 const sq=$('#sq'),sres=$('#sres');
+function parseCoord(s){   // '36.0262131N , 129.3950929E', '36.02,129.39', '-36.1 -129.2' 등 -> [위도,경도]
+  const m=[...String(s).matchAll(/(-?\d+(?:\.\d+)?)\s*°?\s*([NSEWnsew])?/g)];
+  if(m.length!==2||!m.every(x=>x[1].includes('.')))return null;
+  let v=m.map(x=>{let n=+x[1];if(/[SWsw]/.test(x[2]||''))n=-Math.abs(n);return [n,(x[2]||'').toUpperCase()];});
+  if((v[0][1]==='E'||v[0][1]==='W')||(v[1][1]==='N'||v[1][1]==='S')||(!v[0][1]&&!v[1][1]&&Math.abs(v[0][0])>90))v=[v[1],v[0]];   // 경도가 앞에 오면 바꿈
+  const la=v[0][0],lo=v[1][0];
+  return Math.abs(la)<=90&&Math.abs(lo)<=180?[la,lo]:null;
+}
+function gotoCoord(c){   // 입력한 좌표로 위성지도 이동 + 표시
+  closeSheet();if(cur!==G)showView('geo');hiClear();
+  G.map.setView(c,Math.max(G.map.getZoom(),18));
+  L.marker(c,{interactive:false,icon:hiIcon()}).addTo(G.hiLayer);
+  L.marker(c,{icon:L.divIcon({className:'ptw',html:`<div class="pt">${ARROW('#1b6fe0')}<span>${c[0].toFixed(6)}, ${c[1].toFixed(6)}</span></div>`,iconSize:[0,0]}),interactive:false}).addTo(G.hiLayer);
+  hiT=setTimeout(hiClear,60000);
+}
 function doSearch(){
   const tk=sq.value.trim().toLowerCase().split(/\s+/).filter(Boolean);sres.replaceChildren();
   if(!tk.length){sres.hidden=true;return;}
+  const cc=parseCoord(sq.value);
   const f=S.pts.filter(p=>{const s=(p.name+' '+(p.code||'')+' '+(p.note||p.memo||'')).toLowerCase();return tk.every(w=>s.includes(w));}).slice(0,30);
   sres.hidden=false;
-  if(!f.length){sres.append(el('div','r','검색 결과 없음'));return;}
   const go=p=>{sres.hidden=true;sq.blur();findPt(p);};
+  const goC=()=>{sres.hidden=true;sq.blur();gotoCoord(cc);};
+  if(cc){const r=el('div','r',`📍 좌표로 이동: ${cc[0].toFixed(6)}, ${cc[1].toFixed(6)}`);r.onclick=goC;sres.append(r);}
+  if(!f.length&&!cc){sres.append(el('div','r','검색 결과 없음'));return;}
   f.forEach(p=>{const r=el('div','r',p.name);if(p.code)r.append(el('small','',p.code));if(!llOf(p))r.append(el('small','','위치 없음'));r.onclick=()=>go(p);sres.append(r);});
-  sq.onkeydown=e=>{if(e.key==='Enter')go(f[0]);};
+  sq.onkeydown=e=>{if(e.key==='Enter'){if(cc)goC();else if(f[0])go(f[0]);}};
 }
 sq.oninput=doSearch;sq.onfocus=doSearch;
 P.map.on('click',()=>{sres.hidden=true;});G.map.on('click',()=>{sres.hidden=true;});
