@@ -685,9 +685,9 @@ body{display:flex;flex-direction:column;height:100vh;height:100dvh}
 #bar{flex:none;display:flex;background:#fff;border-top:1px solid #c9d0dc;padding-bottom:env(safe-area-inset-bottom)}
 #bar button{flex:1;padding:14px 0;border:0;background:none;font-size:13px;color:#14213a}
 #bar button.on{background:#dbe8ff;font-weight:700}
-#hint{position:absolute;z-index:1050;left:8px;right:8px;top:8px;background:#fff3c4;border:1px solid #e0b800;border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px}
+#hint{position:absolute;z-index:1050;left:8px;right:8px;top:52px;background:#fff3c4;border:1px solid #e0b800;border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px}
 #hint[hidden]{display:none}
-#satctl{position:absolute;z-index:1040;left:56px;right:8px;top:8px;background:rgba(255,255,255,.94);border-radius:8px;padding:6px 10px;display:none;align-items:center;gap:8px;font-size:12.5px;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+#satctl{position:absolute;z-index:1040;left:8px;right:8px;bottom:8px;background:rgba(255,255,255,.94);border-radius:8px;padding:6px 10px;display:none;align-items:center;gap:8px;font-size:12.5px;box-shadow:0 1px 4px rgba(0,0,0,.3)}
 #satctl input{flex:1;min-width:0}
 .sheet{position:absolute;z-index:1100;left:0;right:0;bottom:0;max-height:70%;overflow:auto;background:#fff;box-shadow:0 -4px 16px rgba(0,0,0,.3);padding:10px 12px 14px;-webkit-user-select:text;user-select:text}
 .sheet h3{margin:0 0 8px;font-size:15px;display:flex;justify-content:space-between;align-items:center}
@@ -723,6 +723,21 @@ button{font-family:inherit}
 .pop{min-width:160px;-webkit-user-select:text;user-select:text}
 .pop div{margin:2px 0;font-size:13px}
 .pop .btns{display:flex;gap:6px;margin-top:6px}
+#sbar{position:absolute;z-index:1060;left:56px;right:8px;top:8px}
+#sq{width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #9aa7bd;border-radius:8px;font-size:16px;box-shadow:0 1px 4px rgba(0,0,0,.3);background:#fff;color:#14213a}
+#sres{background:#fff;border-radius:8px;margin-top:4px;max-height:45vh;overflow:auto;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+#sres[hidden]{display:none}
+#sres .r{padding:10px 12px;border-top:1px solid #e3e7ee;font-size:14px}
+#sres .r:first-child{border-top:0}
+#sres .r small{display:block;color:#5a6577}
+.hiw{background:none;border:0}
+.hi{position:absolute;left:-22px;top:-22px;width:44px;height:44px;border-radius:50%;border:4px solid #ffd400;box-shadow:0 0 0 2px #e8472b,0 0 8px #000;animation:hip 1s ease-out infinite}
+@keyframes hip{0%{transform:scale(.4);opacity:1}100%{transform:scale(1.3);opacity:.35}}
+.modal input[type=text],.modal textarea{font-size:16px;padding:9px;border:1px solid #9aa7bd;border-radius:8px;width:100%;box-sizing:border-box;font-family:inherit;-webkit-user-select:text;user-select:text}
+.modal .sug{max-height:150px;overflow:auto;border:1px solid #c9d0dc;border-radius:8px}
+.modal .sug div{padding:8px 10px;border-top:1px solid #e3e7ee;font-size:14px}
+.modal .sug div:first-child{border-top:0}
+.modal .sug small{color:#5a6577}
 @media print{body{display:none}}
 </style>
 </head>
@@ -732,6 +747,7 @@ button{font-family:inherit}
   <div id="map"></div>
   <div id="sat"></div>
   <div id="satctl"><span>도면</span><input type="range" id="op" min="0" max="100" value="60"><span id="baseName"></span></div>
+  <div id="sbar"><input id="sq" type="search" placeholder="설비 검색 (이름·배출구번호)" autocomplete="off" autocapitalize="off" spellcheck="false"><div id="sres" hidden></div></div>
   <div id="hint" hidden><span id="hintTxt"></span><button id="hintX">취소</button></div>
 </div>
 <div id="bar">
@@ -746,7 +762,7 @@ button{font-family:inherit}
 <div id="welcome" class="modal" hidden>
   <div class="card">
     <b>도면 불러오기</b>
-    <p>암호화된 도면 파일(.enc)을 선택하세요. 도면은 암호화된 상태로 이 기기 안에만 저장되고, 열 때마다 보안코드가 필요합니다.</p>
+    <p>암호화된 도면 파일(.enc)을 선택하세요. 도면은 암호화된 상태로 이 기기 안에만 저장됩니다. 보안코드는 이 기기에서 처음 한 번만 입력하면 됩니다.</p>
     <button id="pickEnc">도면 파일(.enc) 선택</button>
     <input type="file" id="encIn" hidden>
   </div>
@@ -772,14 +788,13 @@ button{font-family:inherit}
 let IMG_W=0,IMG_H=0,IMG_URL=null,fz=-3;
 const KEY='pohang-eq-map-enc-v1';
 const ESRI='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-let LOCK_IDLE_MS=10*60*1000, LOCK_HIDDEN_MS=2*60*1000;   // 자동 잠금: 무조작 10분, 앱을 벗어나 2분
 const $=s=>document.querySelector(s);
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e;};
 const uid=()=>Math.random().toString(36).slice(2,9);
 const lsGet=k=>{try{return localStorage.getItem(k);}catch(e){return null;}};
 const lsSet=(k,v)=>{try{localStorage.setItem(k,v);return true;}catch(e){return false;}};
-let S={cal:[],pts:[]};
-let warned=false,KEYREF=null,LOCKED=true,pending=null;
+let S={cal:[],pts:[],cat:[]};
+let warned=false,KEYREF=null,LOCKED=true,pending=null,IMGBUF=null,hiT;
 
 /* ===== 암호화 (AES-256-GCM, 키는 PBKDF2-SHA256 60만 회) ===== */
 const enc=new TextEncoder(),dec=new TextDecoder();
@@ -802,6 +817,12 @@ async function openEnc(buf,code){
   try{return {key,jpg:await crypto.subtle.decrypt({name:'AES-GCM',iv:h.iv,additionalData:h.aad},key,h.ct)};}
   catch(e){const er=new Error('보안코드가 올바르지 않습니다.');er.wrong=true;throw er;}
 }
+/* 도면 내용: JPG 그대로(EQM1) 또는 'EQP2'(4)+길이(4)+JSON{cal,pts}+JPG (보정값 포함 배포용) */
+function splitPayload(pl){
+  const u=new Uint8Array(pl);
+  if(u[0]===69&&u[1]===81&&u[2]===80&&u[3]===50){const n=new DataView(u.buffer,u.byteOffset).getUint32(4);return {img:u.slice(8+n),cfg:JSON.parse(dec.decode(u.slice(8,8+n)))};}
+  return {img:u,cfg:null};
+}
 let saveQ=Promise.resolve();
 function save(){   // 설비/기준점 데이터는 암호화해서만 저장
   if(!KEYREF)return;
@@ -814,8 +835,8 @@ function save(){   // 설비/기준점 데이터는 암호화해서만 저장
   }).catch(()=>{});
 }
 async function loadState(){
-  const s=lsGet(KEY);if(!s){S={cal:[],pts:[]};return true;}
-  try{const u=unb64(s);S=JSON.parse(dec.decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:u.slice(0,12)},KEYREF,u.slice(12))));return true;}
+  const s=lsGet(KEY);if(!s){S={cal:[],pts:[],cat:[]};return true;}
+  try{const u=unb64(s);S=JSON.parse(dec.decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:u.slice(0,12)},KEYREF,u.slice(12))));S.cat=S.cat||[];return true;}
   catch(e){return false;}
 }
 
@@ -872,7 +893,7 @@ function parseLL(s){
 const dist=(a,b)=>Math.hypot((a[1]-b[1])*Math.cos(a[0]*Math.PI/180)*111320,(a[0]-b[0])*110540);
 
 /* ===== 지도 두 개: 도면(P, 픽셀좌표) / 위성 겹침(G, 위경도) ===== */
-const mkView=(map,toLL,fromLL)=>({map,toLL,fromLL,layer:L.layerGroup().addTo(map),calLayer:L.layerGroup().addTo(map),meLayer:L.layerGroup().addTo(map)});
+const mkView=(map,toLL,fromLL)=>({map,toLL,fromLL,layer:L.layerGroup().addTo(map),calLayer:L.layerGroup().addTo(map),meLayer:L.layerGroup().addTo(map),hiLayer:L.layerGroup().addTo(map)});
 const P=mkView(L.map('map',{crs:L.CRS.Simple,minZoom:-6,maxZoom:3,zoomSnap:.25,zoomDelta:.5,attributionControl:false}),
   (x,y)=>L.latLng(IMG_H-y,x), l=>[l.lng,IMG_H-l.lat]);
 let G=null,cur=P;
@@ -963,15 +984,67 @@ async function idbDel(k){const d=await idb();return new Promise((ok,no)=>{const 
 function popupContent(p){
   const d=el('div','pop');
   const t=el('div');t.style.fontWeight='700';t.textContent=p.name;d.append(t);
+  if(p.code)d.append(el('div','','배출구번호 '+p.code));
+  if(p.cap)d.append(el('div','',`용량 ${p.cap} ㎥/분`));
+  if(p.d1||p.d2)d.append(el('div','',`직경 ${p.d1||'-'}m / ${p.d2||'-'}m`));
+  if(p.h)d.append(el('div','',`굴뚝높이 ${p.h}m`));
+  if(p.note||p.memo)d.append(el('div','','특이사항: '+(p.note||p.memo)));
   const q=pos(p);
-  if(M&&q){const [la,lo]=unproject(q[0],q[1]);d.append(el('div','',`도면 기준 좌표 ${la.toFixed(6)}, ${lo.toFixed(6)}`));}
+  if(M&&q){const [la,lo]=unproject(q[0],q[1]);d.append(el('div','',`좌표 ${la.toFixed(6)}, ${lo.toFixed(6)}`));}
   if(p.gps)d.append(el('div','',`원본 GPS ${p.gps[0].toFixed(6)}, ${p.gps[1].toFixed(6)}${p.moved?' (도면에서 이동됨)':''}${p.acc?' ±'+p.acc+'m':''}`));
-  if(p.memo)d.append(el('div','','메모: '+p.memo));
   const b=el('div','btns');
   const e=el('button','','수정'),x=el('button','','삭제');
-  e.onclick=()=>{const n=prompt('설비명',p.name);if(n===null)return;if(n.trim())p.name=n.trim();const m=prompt('메모',p.memo||'');if(m!==null)p.memo=m.trim();save();cur.map.closePopup();render();};
+  e.onclick=async()=>{cur.map.closePopup();const r=await editPt(p);if(r){Object.assign(p,r);delete p.memo;save();render();}};
   x.onclick=()=>{if(confirm(`'${p.name}' 삭제할까요?`)){S.pts=S.pts.filter(v=>v!==p);save();cur.map.closePopup();render();}};
   b.append(e,x);d.append(b);return d;
+}
+/* 설비 입력 창: 설비명 자동완성 + 일치하면 배출구번호/용량/직경 자동 채움 (S.cat = 배출구 목록) */
+const norm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
+function editPt(p){
+  return new Promise(res=>{
+    const m=el('div','modal'),c=el('div','card');c.style.maxHeight='92vh';c.style.overflow='auto';
+    c.append(el('b','',p?'설비 수정':'설비 정보 입력'));
+    const F={},dirty={};let H=p&&p.h||'';
+    const fld=(k,label,ph,mul)=>{const w=el('label');w.style.cssText='font-size:12.5px;color:#445;display:flex;flex-direction:column;gap:2px;flex:1;min-width:0';w.append(el('span','',label));
+      const i=el(mul?'textarea':'input');if(mul)i.rows=2;else i.type='text';i.placeholder=ph||'';i.value=(p&&(p[k]||(k==='note'&&p.memo)))||'';i.autocomplete='off';i.autocapitalize='off';i.spellcheck=false;
+      i.addEventListener('input',()=>{dirty[k]=1;});F[k]=i;w.append(i);return w;};
+    const sug=el('div','sug');sug.hidden=true;
+    const fill=e=>{['code','cap','d1','d2'].forEach(k=>{if(!dirty[k])F[k].value=e[k]||'';});H=e.h||'';};
+    const byName=()=>S.cat.find(e=>norm(e.name)===norm(F.name.value));
+    const nameW=fld('name','설비명','설비명 입력 (일부만 입력해도 검색)');
+    F.name.addEventListener('input',()=>{
+      const tk=norm(F.name.value).split(' ').filter(Boolean);sug.replaceChildren();
+      const hit=byName();if(hit)fill(hit);
+      const f=tk.length?S.cat.filter(e=>tk.every(w=>norm(e.name+' '+e.code).includes(w))&&norm(e.name)!==norm(F.name.value)).slice(0,8):[];
+      sug.hidden=!f.length;
+      f.forEach(e=>{const r=el('div','',e.name),used=S.pts.some(v=>v.name===e.name&&v!==p);r.append(el('small','',`  ${e.code||''}${used?'  ✓등록됨':''}`));
+        r.onclick=()=>{F.name.value=e.name;sug.hidden=true;fill(e);};sug.append(r);});
+    });
+    const row=el('div');row.style.cssText='display:flex;gap:8px';
+    row.append(fld('d1','직경 (m)','000'),fld('d2','직경2 (m)','000'));
+    c.append(nameW,sug,fld('code','배출구번호','#A0000000'),fld('cap','용량 (㎥/분)','00000'),row,fld('note','특이사항','',true));
+    const ok=el('button','','저장'),no=el('button','','취소');
+    const done=v=>{m.remove();res(v);};
+    ok.onclick=()=>{const n=F.name.value.trim();if(!n)return toast('설비명을 입력하세요.');
+      const r={name:n,h:H};['code','cap','d1','d2','note'].forEach(k=>{r[k]=F[k].value.trim();});done(r);};
+    no.onclick=()=>done(null);
+    c.append(ok,no);m.append(c);document.body.append(m);F.name.focus();
+  });
+}
+function importCat(text){
+  const rows=parseTable(text);
+  const body=rows.length&&/배출시설|설비명|방지시설/.test(rows[0].join(' '))?rows.slice(1):rows;
+  const cat=body.map(r=>({name:(r[0]||'').trim(),code:(r[1]||'').trim(),cap:(r[2]||'').trim(),h:(r[3]||'').trim(),d1:(r[4]||'').trim(),d2:(r[5]||'').trim()})).filter(e=>e.name);
+  if(!cat.length)return toast('읽을 수 있는 행이 없습니다. (열 순서: 배출시설, 방지시설, 기준풍량, 굴뚝높이, 굴뚝직경, 굴뚝직경2)');
+  S.cat=cat;save();toast(`배출구 목록 ${cat.length}개를 불러왔습니다. 설비 추가 때 설비명이 자동완성됩니다.`);
+}
+function pasteCat(){
+  const m=el('div','modal'),c=el('div','card');
+  c.append(el('b','','배출구 목록 붙여넣기'),el('p','','엑셀에서 표(헤더 포함)를 복사해 아래에 붙여넣으세요. 열 순서: 배출시설, 방지시설(배출구번호), 기준풍량, 굴뚝높이, 굴뚝직경, 굴뚝직경2'));
+  const ta=el('textarea');ta.rows=8;c.append(ta);
+  const ok=el('button','','불러오기'),no=el('button','','취소');
+  ok.onclick=()=>{importCat(ta.value);m.remove();};no.onclick=()=>m.remove();
+  c.append(ok,no);m.append(c);document.body.append(m);
 }
 function draw(v){
   v.layer.clearLayers();v.calLayer.clearLayers();
@@ -983,10 +1056,6 @@ function draw(v){
     mk.bindPopup(()=>popupContent(p),{offset:[0,-4]});
     mk.on('dragend',()=>{const [x,y]=v.fromLL(mk.getLatLng());p.px=x;p.py=y;p.moved=true;save();render();});
     mk.addTo(v.layer);
-  });
-  S.cal.forEach((c,i)=>{
-    const d=el('div','cp');d.append(el('i'),el('span','',`기준${i+1}`));
-    L.marker(v.toLL(c.px,c.py),{interactive:false,icon:L.divIcon({html:d,className:'cpw',iconSize:[0,0]})}).addTo(v.calLayer);
   });
 }
 function render(){
@@ -1013,22 +1082,30 @@ function choose(title,opts){
     const x=el('button','','취소');x.onclick=()=>done(-1);c.append(x);m.append(c);document.body.append(m);
   });
 }
-function askCode(title){
-  return new Promise(res=>{
-    const m=el('div','modal'),c=el('div','card');c.append(el('b','',title));
-    const i=el('input');i.type='password';i.autocomplete='off';i.placeholder='보안코드';
-    const ok=el('button','','확인'),no=el('button','','취소');
-    const done=v=>{m.remove();res(v);};
-    ok.onclick=()=>done(i.value);no.onclick=()=>done(null);
-    i.onkeydown=e=>{if(e.key==='Enter')done(i.value);};
-    c.append(i,ok,no);m.append(c);document.body.append(m);i.focus();
-  });
+const hiClear=()=>{clearTimeout(hiT);P.hiLayer.clearLayers();if(G)G.hiLayer.clearLayers();};
+const hiIcon=()=>L.divIcon({className:'hiw',html:'<div class="hi"></div>',iconSize:[0,0]});
+function findPt(p){   // 검색/목록에서 고른 설비를 지도에 노란 링으로 표시하고 이동
+  const pp=pos(p);
+  if(!pp||!inside(pp)||(cur===G&&!M))return toast(pp?'도면 범위 밖입니다.':'미보정: 기준점 3개 이상 보정 후 표시됩니다.');
+  closeSheet();hiClear();goTo(pp);
+  const t=cur.toLL(pp[0],pp[1]);
+  L.marker(t,{interactive:false,icon:hiIcon()}).addTo(cur.hiLayer);
+  cur.layer.eachLayer(m=>{if(m.getLatLng().equals(t,1e-6))m.openPopup();});
+  hiT=setTimeout(hiClear,20000);
 }
-async function confirmCode(title){   // 내보내기/삭제 같은 민감 작업 전에 코드를 다시 확인
-  const c=await askCode(title);if(!c)return false;
-  try{await openEnc(await idbGet('layout'),c);return true;}
-  catch(e){toast(e.wrong?'보안코드가 올바르지 않습니다.':'확인하지 못했습니다.');return false;}
+const sq=$('#sq'),sres=$('#sres');
+function doSearch(){
+  const tk=sq.value.trim().toLowerCase().split(/\s+/).filter(Boolean);sres.replaceChildren();
+  if(!tk.length||LOCKED){sres.hidden=true;return;}
+  const f=S.pts.filter(p=>{const s=(p.name+' '+(p.code||'')+' '+(p.note||p.memo||'')).toLowerCase();return tk.every(w=>s.includes(w));}).slice(0,30);
+  sres.hidden=false;
+  if(!f.length){sres.append(el('div','r','검색 결과 없음'));return;}
+  const go=p=>{sres.hidden=true;sq.blur();findPt(p);};
+  f.forEach(p=>{const r=el('div','r',p.name),pp=pos(p);if(p.code)r.append(el('small','',p.code));if(!pp||!inside(pp))r.append(el('small','',pp?'도면 범위 밖':'미보정'));r.onclick=()=>go(p);sres.append(r);});
+  sq.onkeydown=e=>{if(e.key==='Enter')go(f[0]);};
 }
+sq.oninput=doSearch;sq.onfocus=doSearch;
+P.map.on('click',()=>{sres.hidden=true;});
 let mode=null;
 function setMode(fn,msg){mode=fn;$('#hint').hidden=!fn;$('#hintTxt').textContent=msg||'';}
 $('#hintX').onclick=()=>setMode(null);
@@ -1096,10 +1173,10 @@ $('#bAdd').onclick=async()=>{
   closeSheet();
   if(!IMG_URL)return toast('먼저 도면을 불러오세요.');
   const c=await choose('설비 추가',['지도에서 위치를 탭해서 추가','현재 GPS 위치에 추가']);
-  if(c===0)setMode((x,y)=>{
+  if(c===0)setMode(async(x,y)=>{
     setMode(null);
-    const n=prompt('설비명');
-    if(n&&n.trim()){S.pts.push({id:uid(),name:n.trim(),px:x,py:y});save();render();}
+    const r=await editPt(null);
+    if(r){S.pts.push({id:uid(),px:x,py:y,...r});save();render();}
   },'추가할 위치를 지도에서 탭하세요');
   else if(c===1)addGps();
 };
@@ -1109,8 +1186,8 @@ async function addGps(){
     const g=await gps(),q=project(g.lat,g.lon);
     if(!inside(q))return toast('현재 위치가 도면 범위 밖입니다.');
     if(g.acc>25&&!confirm(`GPS 정확도가 ±${Math.round(g.acc)}m 입니다. 그래도 추가할까요?`))return;
-    const n=prompt('설비명');if(!n||!n.trim())return;
-    S.pts.push({id:uid(),name:n.trim(),gps:[g.lat,g.lon],acc:Math.round(g.acc)});save();render();goTo(q);
+    const r=await editPt(null);if(!r)return;
+    S.pts.push({id:uid(),gps:[g.lat,g.lon],acc:Math.round(g.acc),...r});save();render();goTo(q);
   }catch(e){toast(gpsErr(e));}
 }
 
@@ -1158,7 +1235,7 @@ $('#bList').onclick=()=>openSheet($('#bList'),'설비 목록',s=>{
       const pp=pos(p),ok=pp&&inside(pp)&&(cur===P||M);
       const r=el('div','row tap'),l=el('div');
       l.append(el('span','',p.name),el('small','',ok?(M?unproject(pp[0],pp[1]).map(v=>v.toFixed(6)).join(', '):'도면 위치 지정됨'):(pp?'도면 범위 밖':'미보정 (기준점 필요)')));
-      r.onclick=()=>{if(!ok)return;closeSheet();goTo(pp);const t=cur.toLL(pp[0],pp[1]);cur.layer.eachLayer(m=>{if(m.getLatLng().equals(t,1e-6))m.openPopup();});};
+      r.onclick=()=>{if(ok)findPt(p);};
       r.append(l);box.append(r);
     });
   };
@@ -1176,27 +1253,37 @@ async function dl(name,data,type){
 const stamp=()=>new Date().toISOString().slice(0,10).replace(/-/g,'');
 async function exportCSV(){
   if(!confirm('CSV는 암호화되지 않은 일반 파일입니다. 보안 규정에 맞게 취급하세요. 계속할까요?'))return;
-  if(!(await confirmCode('CSV 내보내기 - 보안코드 확인')))return;
-  const rows=[['설비명','위도','경도','원본위도','원본경도','이동여부','메모','px','py']];
+  const rows=[['설비명','배출구번호','용량','직경','직경2','특이사항','위도','경도','원본위도','원본경도','이동여부','px','py']];
   S.pts.forEach(p=>{
     const q=pos(p),d=M&&q?unproject(q[0],q[1]):['',''];
-    rows.push([p.name,d[0]===''?'':d[0].toFixed(7),d[1]===''?'':d[1].toFixed(7),p.gps?p.gps[0]:'',p.gps?p.gps[1]:'',p.moved?'Y':'',p.memo||'',q?Math.round(q[0]):'',q?Math.round(q[1]):'']);
+    rows.push([p.name,p.code||'',p.cap||'',p.d1||'',p.d2||'',p.note||p.memo||'',d[0]===''?'':d[0].toFixed(7),d[1]===''?'':d[1].toFixed(7),p.gps?p.gps[0]:'',p.gps?p.gps[1]:'',p.moved?'Y':'',q?Math.round(q[0]):'',q?Math.round(q[1]):'']);
   });
   dl(`설비위치_${stamp()}.csv`,'﻿'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n'),'text/csv');
 }
 async function exportBackup(){   // 'EQB1'(4) + iv(12) + 암호문 : 같은 도면 파일+같은 보안코드에서만 열린다
-  if(!(await confirmCode('백업 저장 - 보안코드 확인')))return;
   const iv=crypto.getRandomValues(new Uint8Array(12));
   const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},KEYREF,enc.encode(JSON.stringify(S))));
   const o=new Uint8Array(16+ct.length);o.set([69,81,66,49],0);o.set(iv,4);o.set(ct,16);
   dl(`설비지도백업_${stamp()}.eqb`,o,'application/octet-stream');
+}
+async function exportPackage(){   // 보정값(+설비)을 도면과 함께 다시 암호화: 다른 폰에는 이 파일 하나만 넣으면 된다
+  if(!M||!IMGBUF)return toast('먼저 기준점을 3개 이상 보정하세요.');
+  const c=await choose('배포용 도면 파일 만들기',['보정값(기준점)만 포함','보정값 + 설비 위치까지 포함']);
+  if(c<0)return;
+  const hdr=new Uint8Array(await idbGet('layout')).slice(0,24);
+  const js=enc.encode(JSON.stringify({cal:S.cal,pts:c?S.pts:[],cat:S.cat}));
+  const pl=new Uint8Array(8+js.length+IMGBUF.length);pl.set([69,81,80,50]);new DataView(pl.buffer).setUint32(4,js.length);pl.set(js,8);pl.set(IMGBUF,8+js.length);
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:hdr},KEYREF,pl));
+  const o=new Uint8Array(36+ct.length);o.set(hdr);o.set(iv,24);o.set(ct,36);
+  dl(`도면_배포용_${stamp()}.enc`,o,'application/octet-stream');
 }
 async function restoreBackup(u){
   try{
     const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:u.slice(4,16)},KEYREF,u.slice(16));
     const j=JSON.parse(dec.decode(pt));if(!Array.isArray(j.cal)||!Array.isArray(j.pts))throw 0;
     if(!confirm('백업을 불러오면 현재 기준점/설비가 모두 대체됩니다. 계속할까요?'))return;
-    S={cal:j.cal,pts:j.pts};recalc();save();render();toast('백업을 불러왔습니다.');
+    S={cal:j.cal,pts:j.pts,cat:j.cat||[]};recalc();save();render();toast('백업을 불러왔습니다.');
   }catch(e){toast('이 백업은 다른 도면 파일/보안코드로 만들어져 열 수 없습니다.');}
 }
 function parseTable(t){
@@ -1217,7 +1304,7 @@ function importCSV(text){
   const rows=parseTable(text);if(!rows.length)return toast('내용이 없습니다.');
   const h=rows[0].map(v=>v.trim().toLowerCase());
   const find=(...k)=>h.findIndex(v=>k.some(x=>v===x));
-  let iN=find('설비명','설비','name','시설명','배출구'),iLa=find('위도','lat','latitude'),iLo=find('경도','lon','lng','longitude'),iM=find('메모','memo','비고');
+  let iN=find('설비명','설비','name','시설명','배출구'),iLa=find('위도','lat','latitude'),iLo=find('경도','lon','lng','longitude'),iM=find('특이사항','메모','memo','비고'),iC=find('배출구번호'),iCap=find('용량'),iD1=find('직경','직경1'),iD2=find('직경2');
   const hasHead=iN>=0||iLa>=0||iLo>=0;
   const body=hasHead?rows.slice(1):rows;if(iN<0)iN=0;
   let add=0,dup=0,bad=0;
@@ -1229,7 +1316,7 @@ function importCSV(text){
     else v=parseLL(r.filter((_,i)=>i!==iN).join(' '));
     if(!name||!v){bad++;return;}
     if(names.has(name)){dup++;return;}
-    names.add(name);S.pts.push({id:uid(),name,gps:v,memo:iM>=0?(r[iM]||'').trim():''});add++;
+    names.add(name);const g=i=>i>=0?(r[i]||'').trim():'';S.pts.push({id:uid(),name,gps:v,code:g(iC),cap:g(iCap),d1:g(iD1),d2:g(iD2),note:g(iM)});add++;
   });
   save();render();
   toast(`${add}개 추가${dup?`, 이름 중복 ${dup}개 건너뜀`:''}${bad?`, 읽지 못한 행 ${bad}개`:''}${add&&!M?' (기준점 보정 후 도면에 표시됩니다)':''}`);
@@ -1237,27 +1324,29 @@ function importCSV(text){
 async function importFile(f){
   const u=new Uint8Array(await f.arrayBuffer());
   if(u[0]===69&&u[1]===81&&u[2]===66&&u[3]===49)return restoreBackup(u);
-  importCSV(dec.decode(u));
+  const tx=dec.decode(u);if(/기준풍량|굴뚝직경/.test(tx.split(/\r?\n/)[0]))return importCat(tx);
+  importCSV(tx);
 }
 async function wipeAll(){
   if(!confirm('이 기기에 저장된 도면과 설비 데이터를 모두 삭제합니다. (원본 .enc 파일과 백업 파일은 그대로) 계속할까요?'))return;
-  if(!(await confirmCode('삭제 확인 - 보안코드')))return;
   try{await idbDel('layout');}catch(e){}
   lsSet(KEY,'');lock();$('#lock').hidden=true;$('#welcome').hidden=false;
 }
 $('#bFile').onclick=()=>openSheet($('#bFile'),'파일 / 보안 / 설정',s=>{
   const b=el('div','btns');
   const mk=(t,f)=>{const x=el('button','',t);x.onclick=f;b.append(x);return x;};
-  mk('지금 잠그기',()=>lock());
+  mk('배포용 도면 파일 만들기',exportPackage);
+  mk('잠그기 (코드 기억 해제)',()=>lock());
   mk('설비 CSV 내보내기',exportCSV);
   mk('암호화 백업 저장',exportBackup);
   const inp=el('input');inp.type='file';inp.hidden=true;inp.onchange=()=>{if(inp.files[0])importFile(inp.files[0]);inp.value='';};
-  mk('CSV/백업 불러오기',()=>inp.click());
+  mk('배출구 목록 붙여넣기',pasteCat);
+  mk('CSV/목록/백업 파일 불러오기',()=>inp.click());
   mk('설비 전체 삭제',()=>{if(confirm('설비를 모두 삭제할까요? (기준점은 유지)')){S.pts=[];save();render();}});
   mk('도면 교체(.enc)',()=>{lock();$('#encIn').click();});
   mk('기기에서 도면·데이터 삭제',wipeAll);
   b.append(inp);s.append(b);
-  s.append(el('div','note',`도면과 설비 데이터는 암호화되어 저장됩니다. 아무 조작이 없으면 ${LOCK_IDLE_MS/60000}분, 앱을 벗어나 있으면 ${LOCK_HIDDEN_MS/60000}분 뒤 자동으로 잠깁니다. 화면 캡처·화면 녹화는 앱이 막을 수 없습니다.`));
+  s.append(el('div','note','보안코드는 이 기기에서 처음 한 번만 받고, 이후에는 기억합니다. 그래서 폰 잠금이 풀린 상태면 누구나 도면을 볼 수 있습니다. 분실·인계 때는 [잠그기]로 기억을 지우세요. 다른 폰에는 [배포용 도면 파일 만들기]로 만든 .enc 하나만 넣으면 보정값까지 함께 들어갑니다. 화면 캡처는 앱이 막을 수 없습니다.'));
   s.append(el('div','note','CSV 열 이름: 설비명, 위도, 경도, 메모 (엑셀에서 복사한 탭 구분 텍스트도 가능). 같은 이름의 설비는 건너뜁니다. 기기를 바꾸거나 브라우저 데이터를 지우기 전에 암호화 백업을 저장하세요.'));
   s.append(el('div','note','구글 위성 지도 API 키 (선택). 비워 두면 Esri 위성이 표시됩니다.'));
   const k=el('input');k.type='text';k.placeholder='Google Cloud API 키';k.value=lsGet('gkey')||'';k.autocapitalize='off';k.autocomplete='off';s.append(k);
@@ -1266,7 +1355,7 @@ $('#bFile').onclick=()=>openSheet($('#bFile'),'파일 / 보안 / 설정',s=>{
 });
 
 /* ===== 잠금 / 해제 ===== */
-let lockTimer,lastActive=Date.now(),hiddenAt=0;
+let lockTimer;
 function showLock(msg,cancel){
   $('#welcome').hidden=true;$('#lock').hidden=false;
   $('#lockMsg').textContent=msg||'';$('#code').value='';$('#lockCancel').hidden=!cancel;
@@ -1285,22 +1374,30 @@ function failed(){   // 연속 3회 실패부터 대기시간이 늘어남 (5초
 async function unlock(code){
   const bytes=pending||await idbGet('layout');
   const {key,jpg}=await openEnc(bytes,code);
+  await enter(key,jpg,bytes);
+}
+async function enter(key,pl,bytes){
   KEYREF=key;
+  const {img,cfg}=splitPayload(pl);
   if(!(await loadState())){
-    if(!confirm('이 도면 파일/보안코드로는 기존 설비 데이터를 열 수 없습니다. 기존 데이터를 지우고 새로 시작할까요?')){KEYREF=null;const e=new Error('취소됨');e.cancel=true;throw e;}
-    S={cal:[],pts:[]};lsSet(KEY,'');
+    if(!(pending&&cfg)&&!confirm('이 도면 파일/보안코드로는 기존 설비 데이터를 열 수 없습니다. 기존 데이터를 지우고 새로 시작할까요?')){KEYREF=null;const e=new Error('취소됨');e.cancel=true;throw e;}
+    S={cal:[],pts:[],cat:[]};lsSet(KEY,'');
+  }
+  if(pending&&cfg&&Array.isArray(cfg.cal)&&(!(S.cal.length||S.pts.length)||confirm('이 도면 파일에 들어 있는 기준점/설비로 현재 기기의 데이터를 바꿀까요?'))){
+    S={cal:cfg.cal,pts:Array.isArray(cfg.pts)?cfg.pts:[],cat:Array.isArray(cfg.cat)?cfg.cat:S.cat||[]};save();
   }
   if(pending){await idbSet('layout',bytes);pending=null;}
+  try{await idbSet('key',key);}catch(e){}   // 키(추출 불가)를 기기에 기억 -> 다음부터 코드 입력 없음
   lsSet('fails','0');lsSet('until','0');
-  recalc();
-  await useImage(URL.createObjectURL(new Blob([jpg],{type:'image/jpeg'})));
-  LOCKED=false;$('#lock').hidden=true;lastActive=Date.now();
+  recalc();IMGBUF=img;
+  await useImage(URL.createObjectURL(new Blob([img],{type:'image/jpeg'})));
+  LOCKED=false;$('#lock').hidden=true;
   try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist();}catch(e){}
   render();
 }
 function lock(){
   if(LOCKED&&!KEYREF)return;
-  KEYREF=null;LOCKED=true;S={cal:[],pts:[]};M=null;
+  KEYREF=null;LOCKED=true;S={cal:[],pts:[],cat:[]};M=null;IMGBUF=null;idbDel('key').catch(()=>{});sq.value='';sres.hidden=true;hiClear();
   setMode(null);closeSheet();stopMe();
   document.querySelectorAll('.modal:not([id])').forEach(m=>m.remove());
   P.map.closePopup();
@@ -1332,11 +1429,8 @@ async function stageEnc(f){
 }
 $('#pickEnc').onclick=()=>$('#encIn').click();
 $('#encIn').onchange=e=>{if(e.target.files[0])stageEnc(e.target.files[0]);e.target.value='';};
-['pointerdown','keydown'].forEach(t=>addEventListener(t,()=>{lastActive=Date.now();},true));
-setInterval(()=>{if(!LOCKED&&Date.now()-lastActive>LOCK_IDLE_MS)lock();},15000);
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){hiddenAt=Date.now();$('#curtain').hidden=false;}   // 앱 전환 화면에 도면이 비치지 않도록 가림
-  else{$('#curtain').hidden=true;if(!LOCKED&&hiddenAt&&Date.now()-hiddenAt>=LOCK_HIDDEN_MS)lock();hiddenAt=0;}
+  $('#curtain').hidden=!document.hidden;   // 앱 전환 화면에 도면이 비치지 않도록 가림
 });
 addEventListener('pagehide',()=>{$('#curtain').hidden=false;});
 addEventListener('pageshow',()=>{if(!document.hidden)$('#curtain').hidden=true;});
@@ -1345,8 +1439,13 @@ addEventListener('pageshow',()=>{if(!document.hidden)$('#curtain').hidden=true;}
 (async()=>{
   status();
   if(!(window.crypto&&crypto.subtle)){$('#st').textContent='이 주소에서는 암호화 기능을 쓸 수 없습니다. https 주소로 여세요.';return;}
-  let has=false;try{has=!!(await idbGet('layout'));}catch(e){}
-  if(has)showLock('');else $('#welcome').hidden=false;
+  let bytes=null;try{bytes=await idbGet('layout');}catch(e){}
+  if(!bytes)return void($('#welcome').hidden=false);
+  try{
+    const k=await idbGet('key');
+    if(k){const h=parseEnc(bytes);await enter(k,await crypto.subtle.decrypt({name:'AES-GCM',iv:h.iv,additionalData:h.aad},k,h.ct),bytes);return;}
+  }catch(e){}
+  showLock('');
 })();
 if('serviceWorker' in navigator&&/^https?:/.test(location.protocol))navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>

@@ -1,4 +1,4 @@
-const C='eqmap-v2',A=['./','index.html','manifest.json','icon-192.png','icon-512.png'];
+const C='eqmap-v3',A=['./','index.html','manifest.json','icon-192.png','icon-512.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll(A)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))).then(()=>self.clients.claim())));
 // 앱 파일(같은 주소)만 캐시. 온라인이면 항상 최신. 도면/설비 데이터와 지도 타일은 건드리지 않음.
