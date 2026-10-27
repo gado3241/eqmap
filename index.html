@@ -990,6 +990,7 @@ async function idbDel(k){const d=await idb();return new Promise((ok,no)=>{const 
 
 /* ===== 그리기 ===== */
 const ARROW=c=>`<svg width="20" height="30" viewBox="0 0 20 30"><polygon points="10,28 1,13 7,13 7,2 13,2 13,13 19,13" fill="${c}" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+const PIN=`<svg width="20" height="30" viewBox="0 0 20 30"><path d="M10 28 L2 15 A8.6 8.6 0 1 1 18 15 Z" fill="#ffd400" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/><text x="10" y="15.5" text-anchor="middle" font-size="13" font-weight="900" fill="#111" font-family="sans-serif">!</text></svg>`;   // 위치 불확실: 노란 느낌표 (끝이 좌표)
 const BIG=20;   // 중첩 편차가 이 값(m) 이상이면 평균 이전의 개별 입력점을 이름표·점선으로 크게 표시
 function dropSrc(p,i){   // 오류로 판단한 입력점을 제외하고 평균 재계산
   const r=p.rev;r.src.splice(i,1);
@@ -1017,6 +1018,7 @@ function popupContent(p){
     });
     if(p.rev.conf&&p.rev.conf.length)d.append(el('div','','내용이 서로 다른 항목: '+p.rev.conf.map(k=>LBL[k]).join(', ')));
   }
+  if(p.unsure)d.append(el('div','','❗ 위치 불확실'));
   if(p.code)d.append(el('div','','배출구번호 '+p.code));
   if(p.cap)d.append(el('div','',`용량 ${p.cap} ㎥/분`));
   if(p.d1||p.d2)d.append(el('div','',`직경 ${p.d1||'-'}m / ${p.d2||'-'}m`));
@@ -1057,11 +1059,13 @@ function editPt(p){
     });
     const row=el('div');row.style.cssText='display:flex;gap:8px';
     row.append(fld('d1','직경 (m)','000'),fld('d2','직경2 (m)','000'));
-    c.append(nameW,sug,fld('code','배출구번호','#A0000000'),fld('cap','용량 (㎥/분)','00000'),row,fld('note','특이사항','',true));
+    const ck=el('label');ck.style.cssText='display:flex;gap:8px;align-items:center;font-size:14px';
+    const cb=el('input');cb.type='checkbox';cb.checked=!!(p&&p.unsure);cb.style.cssText='width:20px;height:20px;flex:none';ck.append(cb,el('span','','위치 불확실 (노란 느낌표로 표시)'));
+    c.append(nameW,sug,fld('code','배출구번호','#A0000000'),fld('cap','용량 (㎥/분)','00000'),row,fld('note','특이사항','',true),ck);
     const ok=el('button','','저장'),no=el('button','','취소');
     const done=v=>{m.remove();res(v);};
     ok.onclick=()=>{const n=F.name.value.trim();if(!n)return toast('설비명을 입력하세요.');
-      const r={name:n,h:H};['code','cap','d1','d2','note'].forEach(k=>{r[k]=F[k].value.trim();});done(r);};
+      const r={name:n,h:H,unsure:cb.checked};['code','cap','d1','d2','note'].forEach(k=>{r[k]=F[k].value.trim();});done(r);};
     no.onclick=()=>done(null);
     c.append(ok,no);m.append(c);document.body.append(m);F.name.focus();
   });
@@ -1081,16 +1085,24 @@ function pasteCat(){
   ok.onclick=()=>{importCat(ta.value);m.remove();};no.onclick=()=>m.remove();
   c.append(ok,no);m.append(c);document.body.append(m);
 }
+function map_dist(a,b,v){const g1=v.toGeo(...v.fromLL(a)),g2=v.toGeo(...v.fromLL(b));return g1&&g2?dist(g1,g2):0;}
 function draw(v){
   v.layer.clearLayers();
   S.pts.forEach(p=>{
     const g=llOf(p);if(!g)return;
     let a=g[0],b=g[1];
     if(v===P){if(!M||!IMG_W)return;const q=project(g[0],g[1]);if(!inside(q))return;a=q[0];b=q[1];}
-    const d=el('div','pt'+(p.rev?' rev':''));d.insertAdjacentHTML('afterbegin',ARROW(p.rev?'#ff9800':'#e8472b'));d.append(el('span','',(p.rev?'⚠ ':'')+p.name));
+    const d=el('div','pt'+(p.rev?' rev':''));d.insertAdjacentHTML('afterbegin',p.unsure?PIN:ARROW(p.rev?'#ff9800':'#e8472b'));d.append(el('span','',(p.rev?'⚠ ':'')+p.name));
     const mk=L.marker(v.toLL(a,b),{draggable:true,icon:L.divIcon({html:d,className:'ptw',iconSize:[0,0]})});
     mk.bindPopup(()=>popupContent(p),{offset:[0,-30]});
-    mk.on('dragend',()=>{const [x,y]=v.fromLL(mk.getLatLng()),n=v.toGeo(x,y);if(n){p.lat=n[0];p.lon=n[1];delete p.u;save();}render();});
+    let from=null;
+    mk.on('dragstart',()=>{from=mk.getLatLng();});
+    mk.on('dragend',()=>{   // 실수로 끌어 옮기는 일이 없도록 확인 후에만 이동
+      const to=mk.getLatLng(),[x,y]=v.fromLL(to),n=v.toGeo(x,y);
+      const m=from?Math.round(map_dist(from,to,v)):0;
+      if(n&&from&&confirm(`'${p.name}' 위치를 옮길까요?${m?` (약 ${m}m 이동)`:''}`)){p.lat=n[0];p.lon=n[1];delete p.u;save();}
+      render();   // 취소하면 다시 그려 원래 위치로 복귀
+    });
     mk.addTo(v.layer);
     if(p.rev&&v===G){   // 입력자별 원래 위치: 편차가 크면 점선 + 이름표로 크게
       const big=p.rev.spread>=BIG;
@@ -1318,7 +1330,7 @@ $('#bList').onclick=()=>openSheet($('#bList'),'설비 목록',s=>{
     if(!f.length)box.append(el('div','note',S.pts.length?'검색 결과 없음':'등록된 설비가 없습니다.'));
     f.forEach(p=>{
       const g=llOf(p),r=el('div','row tap'),l=el('div');
-      l.append(el('span','',(p.rev?'⚠ ':'')+p.name),el('small','',(p.rev?`${p.rev.n}명 입력, 편차 ${p.rev.spread}m${p.rev.spread>=BIG?' (큼)':''} · `:'')+(p.code?p.code+' · ':'')+(g?g.map(v=>v.toFixed(6)).join(', '):'위치 없음')));
+      l.append(el('span','',(p.rev?'⚠ ':'')+(p.unsure?'❗ ':'')+p.name),el('small','',(p.rev?`${p.rev.n}명 입력, 편차 ${p.rev.spread}m${p.rev.spread>=BIG?' (큼)':''} · `:'')+(p.code?p.code+' · ':'')+(g?g.map(v=>v.toFixed(6)).join(', '):'위치 없음')));
       r.onclick=()=>{if(g)findPt(p);};
       r.append(l);box.append(r);
     });
@@ -1508,7 +1520,7 @@ addEventListener('pageshow',()=>{if(!document.hidden)$('#curtain').hidden=true;}
 
 /* ===== 취합 (사원 입력 -> 담당자 취합 -> 4자리 코드 취합자료 -> 사원 업데이트) ===== */
 const dstr=ts=>{const d=new Date(ts),z=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`;};
-const slim=p=>{const g=llOf(p);return {name:p.name,lat:g[0],lon:g[1],code:p.code||'',cap:p.cap||'',d1:p.d1||'',d2:p.d2||'',h:p.h||'',note:p.note||p.memo||''};};
+const slim=p=>{const g=llOf(p);return {name:p.name,lat:g[0],lon:g[1],code:p.code||'',cap:p.cap||'',d1:p.d1||'',d2:p.d2||'',h:p.h||'',note:p.note||p.memo||'',unsure:!!p.unsure};};
 async function sendFile(name,text,subject,body,mail){   // 공유 시트(메일/카카오톡) 우선, 안 되면 다운로드 + 메일 작성창
   const f=new File([text],name,{type:'text/plain'});
   try{
@@ -1541,6 +1553,7 @@ function mergeSources(use){   // use: [{who,pts:[{name,lat,lon,...}]}] -> 없는
   map.forEach(list=>{
     const f=list[0].p,o={id:uid(),name:f.name,lat:avg(list.map(x=>+x.p.lat)),lon:avg(list.map(x=>+x.p.lon))},conf=[];
     ['code','cap','d1','d2','h'].forEach(k=>{const v=[...new Set(list.map(x=>String(x.p[k]||'').trim()).filter(Boolean))];o[k]=v[0]||'';if(v.length>1)conf.push(k);});
+    o.unsure=list.some(x=>x.p.unsure);
     o.note=[...new Set(list.map(x=>String(x.p.note||'').trim()).filter(Boolean))].join(' / ');
     if(list.length>1){
       over++;let sp=0;
@@ -1610,7 +1623,7 @@ async function doUpdate(files){
   const keys=new Set(j.pts.map(p=>norm(p.name))),local=S.pts.filter(p=>!keys.has(norm(p.name))&&!p.u);
   const c=await choose(`취합자료 ${dstr(best.ts)} · 설비 ${j.pts.length}개\n내 기기에만 있는 설비 ${local.length}개`,['업데이트 (내 기기에만 있는 설비는 유지)','취합자료로 완전히 바꾸기 (내 설비 삭제)']);
   if(c<0)return;
-  const np=j.pts.map(p=>({id:uid(),u:1,name:p.name,lat:p.lat,lon:p.lon,code:p.code||'',cap:p.cap||'',d1:p.d1||'',d2:p.d2||'',h:p.h||'',note:p.note||''}));
+  const np=j.pts.map(p=>({id:uid(),u:1,name:p.name,lat:p.lat,lon:p.lon,code:p.code||'',cap:p.cap||'',d1:p.d1||'',d2:p.d2||'',h:p.h||'',note:p.note||'',unsure:!!p.unsure}));
   S.pts=c===0?np.concat(local):np;
   if(Array.isArray(j.cat)&&j.cat.length)S.cat=j.cat;
   if(j.mail)S.mail=j.mail;
